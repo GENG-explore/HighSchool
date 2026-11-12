@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>波的现象 · 交互演示（反射 / 折射 / 衍射 / 干涉）</title>
+<style>
+:root{
+  --bg:#070b16; --panel:#0e1526; --line:#1d2a45; --txt:#dbe6ff; --dim:#8fa3c8;
+  --cyan:#54c8ff; --amber:#ffb03a; --green:#5ef0b0; --red:#ff6b81;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 600px at 70% -10%, #101c38 0%, var(--bg) 60%);
+  color:var(--txt);
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  min-height:100vh; display:flex; justify-content:center; padding:24px 16px;
+}
+.app{width:100%; max-width:1240px;}
+header{display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin-bottom:14px;}
+h1{font-size:22px; font-weight:700; letter-spacing:1px;}
+h1 .sub{font-size:13px; color:var(--dim); font-weight:400; margin-left:10px;}
+.global{margin-left:auto; display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 12px;}
+button{cursor:pointer; font-family:inherit;}
+#playBtn{background:var(--cyan); color:#04121f; border:none; border-radius:8px; padding:6px 14px; font-weight:700; min-width:64px;}
+.global label{font-size:12px; color:var(--dim); white-space:nowrap;}
+.global input{width:110px;}
+nav.tabs{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+nav.tabs button{background:var(--panel); color:var(--dim); border:1px solid var(--line); padding:9px 22px; border-radius:10px; font-size:15px; transition:all .15s;}
+nav.tabs button:hover{color:var(--txt);}
+nav.tabs button.active{background:linear-gradient(135deg,#173a63,#0f2a4a); color:var(--cyan); border-color:#2c5a8c; font-weight:700;}
+main{display:flex; gap:16px; align-items:flex-start;}
+.stage{flex:1; min-width:0;}
+canvas{width:100%; display:block; background:#05070f; border:1px solid var(--line); border-radius:14px; touch-action:none;}
+#infoBar{margin-top:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px; font-size:14px; min-height:44px; line-height:1.6;}
+#infoBar b{color:var(--amber);}
+#infoBar .warn{color:var(--red); font-weight:700;}
+aside{width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+.card h3{font-size:14px; color:var(--cyan); margin-bottom:10px;}
+.ctl{margin-bottom:12px;}
+.ctl label{display:flex; justify-content:space-between; font-size:13px; color:var(--dim); margin-bottom:4px;}
+.ctl .val{color:var(--amber); font-variant-numeric:tabular-nums;}
+input[type=range]{width:100%; accent-color:var(--cyan);}
+.presets{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
+.presets button{background:#12203a; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:12px;}
+.presets button:hover{border-color:var(--cyan); color:var(--cyan);}
+#explain{font-size:13px; line-height:1.75; color:var(--dim);}
+#explain b{color:var(--txt);}
+#explain .formula{display:block; background:#0a1120; border:1px dashed #24334f; border-radius:8px; padding:8px 10px; margin:8px 0; color:var(--green); font-size:14px; text-align:center;}
+#explain ul{padding-left:18px; margin-top:6px;}
+.legend{display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--dim); margin-top:10px;}
+.dot{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:middle;}
+@media (max-width:900px){ main{flex-direction:column;} aside{width:100%;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>波的现象 · 交互演示<span class="sub">反射 Reflection · 折射 Refraction · 衍射 Diffraction · 干涉 Interference</span></h1>
+    <div class="global">
+      <button id="playBtn">暂停</button>
+      <label>速度</label>
+      <input id="speed" type="range" min="0.2" max="2.5" step="0.1" value="1">
+    </div>
+  </header>
+  <nav class="tabs">
+    <button data-scene="reflect" class="active">① 反射</button>
+    <button data-scene="refract">② 折射</button>
+    <button data-scene="diffract">③ 衍射</button>
+    <button data-scene="interfere">④ 干涉</button>
+  </nav>
+  <main>
+    <div class="stage">
+      <canvas id="cv" width="920" height="540"></canvas>
+      <div id="infoBar"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:#ffb03a"></i>波峰（正）</span>
+        <span><i class="dot" style="background:#54a0ff"></i>波谷（负）</span>
+        <span><i class="dot" style="background:#54c8ff"></i>入射波</span>
+        <span><i class="dot" style="background:#ffb03a"></i>反射 / 出射波</span>
+      </div>
+    </div>
+    <aside>
+      <div class="card">
+        <h3>⚙ 参数调节</h3>
+        <div id="controls"></div>
+      </div>
+      <div class="card">
+        <h3>📖 物理原理</h3>
+        <div id="explain"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const W = cv.width, H = cv.height;
+const infoBar = document.getElementById("infoBar");
+const controlsEl = document.getElementById("controls");
+const explainEl = document.getElementById("explain");
+
+let playing = true, speed = 1, t = 0, last = performance.now();
+let active = null, dragging = false;
+
+const PI = Math.PI;
+const TAU = PI * 2;
+
+/* ---------------- 工具函数 ---------------- */
+function circle(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); }
+function line(x1, y1, x2, y2){ ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+function arrow(x1, y1, x2, y2){
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  line(x1, y1, x2, y2);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 10 * Math.cos(a - 0.4), y2 - 10 * Math.sin(a - 0.4));
+  ctx.lineTo(x2 - 10 * Math.cos(a + 0.4), y2 - 10 * Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+function fieldColor(v, buf, i){
+  const a = Math.pow(Math.min(1, Math.abs(v)), 0.72);
+  if (v >= 0){ buf[i] = 255 * a; buf[i+1] = 140 * a; buf[i+2] = 50 * a; }
+  else       { buf[i] = 40 * a;  buf[i+1] = 150 * a; buf[i+2] = 255 * a; }
+  buf[i+3] = 255;
+}
+function arcAngle(cx, cy, r, a0, a1, fill){
+  let d = a1 - a0;
+  while (d > PI) d -= TAU;
+  while (d < -PI) d += TAU;
+  if (fill){
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, a0, a0 + d, d < 0);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, a0, a0 + d, d < 0);
+  ctx.stroke();
+  return a0 + d / 2;
+}
+function tag(text, x, y, color, align){
+  ctx.font = "13px sans-serif";
+  ctx.textAlign = align || "left";
+  const w = ctx.measureText(text).width;
+  let bx = x;
+  if (align === "right") bx = x - w;
+  if (align === "center") bx = x - w / 2;
+  ctx.fillStyle = "rgba(5,7,15,0.78)";
+  ctx.fillRect(bx - 6, y - 13, w + 12, 19);
+  ctx.fillStyle = color || "#cfe0ff";
+  ctx.fillText(text, x, y);
+  ctx.textAlign = "left";
+}
+function toCanvas(e){
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+
+/* ---------------- 场景 1：反射 ---------------- */
+const reflect = {
+  params: { f: 1.6, c: 90, sx: 200, sy: 270 },
+  sliders: [
+    { key: "f", label: "频率 f", min: 0.5, max: 3, step: 0.1, unit: " Hz" }
+  ],
+  explain: `
+    <b>反射定律</b>：反射光线、入射光线与法线在同一平面内；反射角等于入射角。
+    <span class="formula">θ<sub>i</sub> = θ<sub>r</sub></span>
+    图中用<b>镜像法</b>构造反射波：反射波等效于从墙后"虚波源"发出的波（虚线圆）。
+    <ul>
+      <li><b>试一试</b>：用鼠标<b>拖动青色波源</b>，观察入射波与反射波（橙色）叠加出的驻留条纹。</li>
+      <li>调节频率，观察波长 λ = v / f 的变化。</li>
+    </ul>`,
+  init(){},
+  draw(){
+    const p = this.params;
+    const lam = p.c / p.f;
+    const wx = 660;
+    const sx = p.sx, sy = p.sy;
+    const ix = 2 * wx - sx; // 虚波源 x
+
+    // 墙面
+    const g = ctx.createLinearGradient(wx - 8, 0, wx + 8, 0);
+    g.addColorStop(0, "#2a3a5c"); g.addColorStop(0.5, "#55749f"); g.addColorStop(1, "#1a2740");
+    ctx.fillStyle = g; ctx.fillRect(wx - 7, 0, 14, H);
+    ctx.fillStyle = "#0c1424"; ctx.fillRect(wx + 7, 0, W - wx - 7, H);
+    tag("反射壁", wx - 12, 26, "rgba(160,190,235,0.9)", "right");
+    tag("墙后区域", wx + 24, 26, "rgba(140,170,220,0.65)");
+
+    // 入射波 + 反射波（限制在墙左侧）
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, wx - 7, H); ctx.clip();
+    const maxR = Math.hypot(W, H);
+    const phase = (t * p.c) % lam;
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = "rgba(84,200,255,0.85)";
+    for (let r = phase; r < maxR; r += lam){ if (r > 0.5) circle(sx, sy, r); }
+    ctx.strokeStyle = "rgba(255,176,58,0.85)";
+    for (let r = phase; r < maxR; r += lam){ if (r > 0.5) circle(ix, sy, r); }
+    ctx.restore();
+
+    // 墙后虚波源（虚线提示）
+    ctx.save(); ctx.beginPath(); ctx.rect(wx + 7, 0, W - wx - 7, H); ctx.clip();
+    ctx.setLineDash([6, 6]); ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,176,58,0.22)";
+    for (let r = phase; r < maxR; r += lam){ if (r > 0.5) circle(ix, sy, r); }
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,176,58,0.35)";
+    ctx.beginPath(); ctx.arc(ix, sy, 5, 0, TAU); ctx.fill();
+    tag("虚波源", ix, sy - 14, "rgba(255,176,58,0.55)", "center");
+    ctx.restore();
+
+    // 代表性光线：S -> P -> 反射
+    const P = { x: wx - 7, y: H - 72 };
+    const vx = P.x - sx, vy = P.y - sy;
+    const L = Math.hypot(vx, vy);
+    const dx = vx / L, dy = vy / L;
+    const rdx = -dx, rdy = dy;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#54c8ff"; ctx.fillStyle = "#54c8ff";
+    arrow(sx, sy, P.x, P.y);
+    ctx.strokeStyle = "#ffb03a"; ctx.fillStyle = "#ffb03a";
+    arrow(P.x, P.y, P.x + rdx * 250, P.y + rdy * 250);
+    // 法线
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(220,235,255,0.6)"; ctx.lineWidth = 1.2;
+    line(P.x - 70, P.y, P.x + 2, P.y);
+    ctx.setLineDash([]);
+    // 角度弧
+    const thI = Math.acos(Math.min(1, Math.max(-1, dx)));
+    const a1 = Math.atan2(-dy, -dx);
+    ctx.strokeStyle = "rgba(84,200,255,0.9)"; ctx.lineWidth = 1.5;
+    const mI = arcAngle(P.x, P.y, 40, PI, a1, "rgba(84,200,255,0.16)");
+    const a2 = Math.atan2(rdy, rdx);
+    ctx.strokeStyle = "rgba(255,176,58,0.9)";
+    const mR = arcAngle(P.x, P.y, 40, PI, a2, "rgba(255,176,58,0.16)");
+    tag("θi", P.x - 72, P.y + (dy > 0 ? -30 : 34), "#9fc6ff", "center");
+    tag("θr", P.x - 72, P.y + (dy > 0 ? 34 : -30), "#ffcf8a", "center");
+
+    // 波源
+    const pr = 7 + 2.2 * Math.sin(t * TAU * p.f);
+    ctx.fillStyle = "#54c8ff";
+    ctx.beginPath(); ctx.arc(sx, sy, pr, 0, TAU); ctx.fill();
+    ctx.fillStyle = "rgba(84,200,255,0.25)";
+    ctx.beginPath(); ctx.arc(sx, sy, pr + 8, 0, TAU); ctx.fill();
+    tag("波源（可拖动）", sx, sy - 20, "#bfe6ff", "center");
+
+    const deg = (thI * 180 / PI).toFixed(1);
+    infoBar.innerHTML = `入射角 θ<sub>i</sub> = <b>${deg}°</b>，反射角 θ<sub>r</sub> = <b>${deg}°</b> —— 反射定律：θ<sub>i</sub> = θ<sub>r</sub>　｜　波长 λ = v / f = <b>${lam.toFixed(0)} px</b>`;
+  }
+};
+
+/* ---------------- 场景 2：折射 ---------------- */
+const refract = {
+  params: { th1: 40, n1: 1.00, n2: 1.50 },
+  sliders: [
+    { key: "th1", label: "入射角 θ₁", min: 2, max: 88, step: 1, unit: "°" },
+    { key: "n1", label: "介质 1 折射率 n₁（上方）", min: 1.0, max: 2.0, step: 0.01, fmt: v => v.toFixed(2) },
+    { key: "n2", label: "介质 2 折射率 n₂（下方）", min: 1.0, max: 2.0, step: 0.01, fmt: v => v.toFixed(2) }
+  ],
+  presets: [
+    { name: "空气→水", vals: { n1: 1.00, n2: 1.33 } },
+    { name: "空气→玻璃", vals: { n1: 1.00, n2: 1.50 } },
+    { name: "水→空气", vals: { n1: 1.33, n2: 1.00 } },
+    { name: "玻璃→空气", vals: { n1: 1.50, n2: 1.00 } }
+  ],
+  explain: `
+    <b>折射定律（斯涅尔定律）</b>：入射角与折射角的正弦之比等于两种介质折射率之比。
+    <span class="formula">n₁ sin θ₁ = n₂ sin θ₂</span>
+    光从光密介质射向光疏介质（n₁ > n₂）且入射角大于<b>临界角</b> θ<sub>c</sub> = arcsin(n₂/n₁) 时，发生<b>全反射</b>。
+    <ul>
+      <li>注意波前在不同介质中的间距（波长 λ ∝ 1/n）发生变化，但界面上波前保持连续。</li>
+      <li><b>试一试</b>：点击"玻璃→空气"，再逐渐增大入射角，观察全反射现象。</li>
+    </ul>`,
+  init(){},
+  draw(){
+    const p = this.params;
+    const O = { x: W / 2, y: 250 };
+    const iy = O.y;
+    const th1 = p.th1 * PI / 180;
+    const s1 = Math.sin(th1), c1 = Math.cos(th1);
+    const sin2 = p.n1 * s1 / p.n2;
+    const tir = sin2 > 1;
+    const th2 = tir ? 0 : Math.asin(sin2);
+    const lam0 = 26, c0 = 60;
+    const lam1 = lam0 / p.n1, lam2 = lam0 / p.n2;
+    const frac = (t * c0 / lam0) % 1;
+
+    // 两种介质背景
+    ctx.fillStyle = "rgba(84,160,255,0.05)"; ctx.fillRect(0, 0, W, iy);
+    ctx.fillStyle = "rgba(94,240,176,0.05)"; ctx.fillRect(0, iy, W, H - iy);
+    ctx.fillStyle = "rgba(140,170,220,0.7)"; ctx.font = "13px sans-serif";
+    tag(`介质 1：n₁ = ${p.n1.toFixed(2)}`, 16, 26, "rgba(150,190,240,0.95)");
+    tag(`介质 2：n₂ = ${p.n2.toFixed(2)}`, 16, iy + 24, "rgba(140,240,200,0.9)");
+    // 界面
+    ctx.strokeStyle = "rgba(180,210,255,0.7)"; ctx.lineWidth = 2;
+    line(0, iy, W, iy);
+
+    // 方向向量
+    const dI = { x: s1, y: c1 };              // 入射方向（向右下）
+    const dF = { x: s1, y: -c1 };             // 反射方向（向右上）
+    const dR = { x: Math.sin(th2), y: Math.cos(th2) }; // 折射方向（向右下）
+
+    const frontLen = 46;
+    function fronts(dir, lam, sMin, sMax, color){
+      const px = -dir.y, py = dir.x;
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      for (let m = Math.floor(sMin / lam) - 1; m <= Math.ceil(sMax / lam) + 1; m++){
+        const s = lam * (m + frac);
+        if (s < sMin || s > sMax) continue;
+        const cx0 = O.x + dir.x * s, cy0 = O.y + dir.y * s;
+        line(cx0 - px * frontLen, cy0 - py * frontLen, cx0 + px * frontLen, cy0 + py * frontLen);
+      }
+    }
+    // 上半区域：入射 + 反射波前
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, iy); ctx.clip();
+    fronts(dI, lam1, -330, 0, "rgba(84,200,255,0.8)");
+    fronts(dF, lam1, 0, 330, "rgba(200,220,255,0.55)");
+    ctx.restore();
+    // 下半区域：折射波前
+    if (!tir){
+      ctx.save(); ctx.beginPath(); ctx.rect(0, iy, W, H - iy); ctx.clip();
+      fronts(dR, lam2, 0, 280, "rgba(94,240,176,0.8)");
+      ctx.restore();
+    }
+
+    // 光线
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = "#54c8ff"; ctx.fillStyle = "#54c8ff";
+    arrow(O.x - dI.x * 300, O.y - dI.y * 300, O.x, O.y);
+    ctx.strokeStyle = tir ? "#ff6b81" : "rgba(200,220,255,0.75)";
+    ctx.fillStyle = ctx.strokeStyle;
+    arrow(O.x, O.y, O.x + dF.x * 300, O.y + dF.y * 300);
+    if (!tir){
+      ctx.strokeStyle = "#5ef0b0"; ctx.fillStyle = "#5ef0b0";
+      arrow(O.x, O.y, O.x + dR.x * 260, O.y + dR.y * 260);
+    }
+    // 法线
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(220,235,255,0.55)"; ctx.lineWidth = 1.2;
+    line(O.x, O.y - 130, O.x, O.y + 130);
+    ctx.setLineDash([]);
+
+    // 角度弧
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(84,200,255,0.9)";
+    const a1 = Math.atan2(-dI.y, -dI.x);
+    const m1 = arcAngle(O.x, O.y, 44, -PI / 2, a1, "rgba(84,200,255,0.15)");
+    tag("θ₁", O.x + 72 * Math.cos(m1), O.y + 72 * Math.sin(m1) + 5, "#9fc6ff", "center");
+    if (!tir){
+      ctx.strokeStyle = "rgba(94,240,176,0.9)";
+      const a2 = Math.atan2(dR.y, dR.x);
+      const m2 = arcAngle(O.x, O.y, 44, PI / 2, a2, "rgba(94,240,176,0.15)");
+      tag("θ₂", O.x + 72 * Math.cos(m2), O.y + 72 * Math.sin(m2) + 5, "#8df0c4", "center");
+    }
+
+    // 信息栏
+    const d1 = p.th1.toFixed(0), d2 = (th2 * 180 / PI).toFixed(1);
+    if (tir){
+      const thc = (Math.asin(p.n2 / p.n1) * 180 / PI).toFixed(1);
+      infoBar.innerHTML = `<span class="warn">⚠ 全反射！</span> 入射角 θ₁ = <b>${d1}°</b> > 临界角 θ<sub>c</sub> = arcsin(n₂/n₁) = <b>${thc}°</b>，光线全部反射回介质 1，没有折射光线。`;
+    } else {
+      infoBar.innerHTML = `斯涅尔定律：n₁ sinθ₁ = ${p.n1.toFixed(2)} × sin${d1}° = <b>${(p.n1 * s1).toFixed(3)}</b> ＝ n₂ sinθ₂ = ${p.n2.toFixed(2)} × sin${d2}° = <b>${(p.n2 * Math.sin(th2)).toFixed(3)}</b>　→　折射角 θ₂ = <b>${d2}°</b>`;
+    }
+  }
+};
+
+/* ---------------- 场景 3：衍射 ---------------- */
+const diffract = {
+  params: { lam: 26, w: 60 },
+  sliders: [
+    { key: "lam", label: "波长 λ", min: 10, max: 60, step: 1, unit: " px" },
+    { key: "w", label: "缝宽 d", min: 6, max: 220, step: 2, unit: " px" }
+  ],
+  explain: `
+    <b>衍射</b>：波遇到障碍物或孔缝时会绕过边缘、偏离直线传播。按<b>惠更斯原理</b>，缝上每一点都可看作新的子波源（本演示将缝离散为若干相干点源实时叠加）。
+    <ul>
+      <li>缝宽 d ≫ λ 时：波近似直线通过，衍射不明显；</li>
+      <li>缝宽 d ≈ λ 或更小时：波明显向各方向散开。</li>
+      <li>右缘的<b>橙色条</b>为接收屏上的强度分布 I(y)。</li>
+    </ul>
+    <b>试一试</b>：固定波长，把缝宽从大拖到小，观察波如何从"柱形束"变成"圆形扩散"。`,
+  init(){
+    this.off = document.createElement("canvas");
+    this.gw = Math.round((W - 330) / 4);
+    this.gh = Math.round(H / 4);
+    this.off.width = this.gw; this.off.height = this.gh;
+    this.octx = this.off.getContext("2d");
+    this.img = this.octx.createImageData(this.gw, this.gh);
+  },
+  draw(){
+    const p = this.params;
+    const bx = 330, cy = H / 2;
+    const lam = p.lam, k = TAU / lam, om = TAU * 55 / lam;
+    const phase = om * t;
+
+    // 左侧：入射平面波（竖直条纹）
+    for (let x = 0; x < bx - 8; x += 2){
+      const v = Math.cos(k * x - phase);
+      const a = Math.abs(v) * 0.85;
+      ctx.fillStyle = v >= 0 ? `rgba(255,140,50,${a})` : `rgba(40,150,255,${a})`;
+      ctx.fillRect(x, 0, 2, H);
+    }
+
+    // 缝上子波源
+    const N = Math.max(2, Math.min(14, Math.round(p.w / (lam * 0.45)) + 1));
+    const srcs = [];
+    for (let i = 0; i < N; i++){
+      srcs.push(cy - p.w / 2 + (N === 1 ? p.w / 2 : p.w * i / (N - 1)));
+    }
+
+    // 右侧：子波叠加场
+    const gw = this.gw, gh = this.gh;
+    const buf = this.img.data;
+    const x0 = bx + 8, xr = W - x0;
+    for (let gy = 0; gy < gh; gy++){
+      const y = (gy + 0.5) / gh * H;
+      for (let gx = 0; gx < gw; gx++){
+        const x = x0 + (gx + 0.5) / gw * xr;
+        const dxx = x - bx;
+        let v = 0;
+        for (let j = 0; j < N; j++){
+          const dy = y - srcs[j];
+          const r = Math.sqrt(dxx * dxx + dy * dy);
+          v += Math.cos(k * r - phase) / Math.sqrt(0.6 + r / lam);
+        }
+        v /= N;
+        fieldColor(v * 1.15, buf, (gy * gw + gx) * 4);
+      }
+    }
+    this.octx.putImageData(this.img, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(this.off, x0, 0, xr, H);
+
+    // 右缘强度分布 I(y)：以曲线剖面显示
+    const prof = [];
+    for (let m = 0; m <= gh; m++){
+      const y = m / gh * H;
+      const dxx = W - 6 - bx;
+      let re = 0, im = 0;
+      for (let j = 0; j < N; j++){
+        const dy = y - srcs[j];
+        const r = Math.sqrt(dxx * dxx + dy * dy);
+        re += Math.cos(k * r); im += Math.sin(k * r);
+      }
+      const I = (re * re + im * im) / (N * N);
+      prof.push([W - 4 - I * 46, y]);
+    }
+    ctx.beginPath();
+    ctx.moveTo(W - 4, 0);
+    prof.forEach(pt => ctx.lineTo(pt[0], pt[1]));
+    ctx.lineTo(W - 4, H);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,176,58,0.22)";
+    ctx.fill();
+    ctx.beginPath();
+    prof.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]));
+    ctx.strokeStyle = "rgba(255,200,110,0.9)"; ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,176,58,0.45)"; ctx.lineWidth = 1;
+    line(W - 4, 0, W - 4, H);
+
+    // 挡板与缝
+    ctx.fillStyle = "#33415f";
+    ctx.fillRect(bx - 7, 0, 15, cy - p.w / 2);
+    ctx.fillRect(bx - 7, cy + p.w / 2, 15, H - (cy + p.w / 2));
+    ctx.fillStyle = "#5b7bb0";
+    ctx.fillRect(bx - 7, cy - p.w / 2 - 3, 15, 3);
+    ctx.fillRect(bx - 7, cy + p.w / 2, 15, 3);
+    // 子波源标记
+    ctx.fillStyle = "#fff";
+    srcs.forEach(y => { ctx.beginPath(); ctx.arc(bx, y, 2, 0, TAU); ctx.fill(); });
+
+    tag("入射平面波 →", 14, 26, "rgba(190,215,255,0.9)");
+    tag(`缝宽 d = ${p.w} px`, bx - 12, cy - p.w / 2 - 12, "rgba(190,215,255,0.9)", "right");
+    tag("屏上强度 I(y) ↓", W - 12, 84, "rgba(255,190,90,0.95)", "right");
+
+    const ratio = p.w / lam;
+    let verdict;
+    if (ratio > 3) verdict = "d ≫ λ：波近似<b>直线传播</b>，衍射不明显（几何光学极限）";
+    else if (ratio > 1) verdict = "d 与 λ 相当：衍射<b>开始明显</b>，波束明显发散";
+    else verdict = "d ≤ λ：波几乎向<b>各方向均匀散开</b>，衍射非常显著";
+    infoBar.innerHTML = `波长 λ = <b>${lam} px</b>，缝宽 d = <b>${p.w} px</b>，d / λ = <b>${ratio.toFixed(2)}</b>　→　${verdict}`;
+  }
+};
+
+/* ---------------- 场景 4：干涉 ---------------- */
+const interfere = {
+  params: { lam: 28, d: 130, phase: 0 },
+  sliders: [
+    { key: "lam", label: "波长 λ", min: 10, max: 60, step: 1, unit: " px" },
+    { key: "d", label: "波源间距 d", min: 20, max: 280, step: 2, unit: " px" },
+    { key: "phase", label: "相位差 Δφ", min: 0, max: 180, step: 5, unit: "°" }
+  ],
+  explain: `
+    <b>干涉</b>：两列频率相同、相位差恒定的<b>相干波</b>叠加，空间形成稳定的强弱分布。
+    <span class="formula">加强：|r₁ − r₂| = mλ　　减弱：|r₁ − r₂| = (m + ½)λ</span>
+    （Δφ ≠ 0 时条件相应平移。）图中虚线为远场<b>加强方向</b>（d·cosα = mλ）。
+    <ul>
+      <li><b>试一试</b>：增大波源间距 d，条纹变密；增大 λ，条纹变疏。</li>
+      <li>把相位差调到 180°，观察加强区与减弱区互换。</li>
+    </ul>`,
+  init(){
+    this.off = document.createElement("canvas");
+    this.gw = Math.round(W / 4);
+    this.gh = Math.round(H / 4);
+    this.off.width = this.gw; this.off.height = this.gh;
+    this.octx = this.off.getContext("2d");
+    this.img = this.octx.createImageData(this.gw, this.gh);
+  },
+  draw(){
+    const p = this.params;
+    const lam = p.lam, k = TAU / lam, om = TAU * 55 / lam;
+    const phase = om * t;
+    const phi = p.phase * PI / 180;
+    const cx0 = W / 2, cy0 = H / 2;
+    const s1 = { x: cx0, y: cy0 - p.d / 2 };
+    const s2 = { x: cx0, y: cy0 + p.d / 2 };
+
+    // 全场叠加
+    const gw = this.gw, gh = this.gh;
+    const buf = this.img.data;
+    for (let gy = 0; gy < gh; gy++){
+      const y = (gy + 0.5) / gh * H;
+      for (let gx = 0; gx < gw; gx++){
+        const x = (gx + 0.5) / gw * W;
+        const r1 = Math.hypot(x - s1.x, y - s1.y);
+        const r2 = Math.hypot(x - s2.x, y - s2.y);
+        let v = (Math.cos(k * r1 - phase) + Math.cos(k * r2 - phase + phi)) / 2;
+        v /= 1 + (r1 + r2) / 1100;
+        fieldColor(v * 1.2, buf, (gy * gw + gx) * 4);
+      }
+    }
+    this.octx.putImageData(this.img, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(this.off, 0, 0, W, H);
+
+    // 远场加强方向虚线：d·cosα = mλ
+    ctx.setLineDash([7, 7]);
+    ctx.strokeStyle = "rgba(255,255,255,0.30)"; ctx.lineWidth = 1.2;
+    const mMax = Math.floor(p.d / lam);
+    for (let m = 0; m <= mMax; m++){
+      const ca = m * lam / p.d;
+      if (ca > 1) continue;
+      const sa = Math.sqrt(1 - ca * ca);
+      [[sa, ca], [sa, -ca], [-sa, ca], [-sa, -ca]].forEach(([ux, uy]) => {
+        line(cx0, cy0, cx0 + ux * 800, cy0 + uy * 800);
+      });
+    }
+    ctx.setLineDash([]);
+
+    // 波源标记与间距标注
+    const pulse = 5 + 2 * Math.sin(phase);
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(s1.x, s1.y, Math.abs(pulse) + 2, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(s2.x, s2.y, Math.abs(5 + 2 * Math.sin(phase + phi)) + 2, 0, TAU); ctx.fill();
+    tag("S₁", s1.x + 16, s1.y + 5, "#eaf2ff", "center");
+    tag("S₂", s2.x + 16, s2.y + 5, "#eaf2ff", "center");
+    ctx.strokeStyle = "rgba(255,176,58,0.9)"; ctx.lineWidth = 1.4;
+    ctx.setLineDash([4, 4]);
+    line(cx0 - 26, s1.y, cx0 - 26, s2.y);
+    ctx.setLineDash([]);
+    tag(`d = ${p.d}px`, cx0 - 36, cy0 + 5, "#ffb03a", "right");
+
+    infoBar.innerHTML = `λ = <b>${lam} px</b>，d = <b>${p.d} px</b>，d / λ = <b>${(p.d / lam).toFixed(1)}</b>（可观察到 ${mMax + 1} 级加强条纹）　｜　Δφ = <b>${p.phase}°</b>　｜　白虚线：加强方向 d·cosα = mλ`;
+  }
+};
+
+/* ---------------- 框架：切换 / 控件 / 主循环 ---------------- */
+const scenes = { reflect, refract, diffract, interfere };
+
+function buildControls(scene){
+  controlsEl.innerHTML = "";
+  scene._inputs = {};
+  scene.sliders.forEach(s => {
+    const row = document.createElement("div");
+    row.className = "ctl";
+    const lab = document.createElement("label");
+    lab.innerHTML = `<span>${s.label}</span><span class="val"></span>`;
+    const inp = document.createElement("input");
+    inp.type = "range"; inp.min = s.min; inp.max = s.max; inp.step = s.step;
+    inp.value = scene.params[s.key];
+    inp.addEventListener("input", () => {
+      scene.params[s.key] = parseFloat(inp.value);
+      refreshVals(scene);
+    });
+    scene._inputs[s.key] = inp;
+    row.appendChild(lab); row.appendChild(inp);
+    controlsEl.appendChild(row);
+  });
+  if (scene.presets){
+    const box = document.createElement("div");
+    box.className = "presets";
+    scene.presets.forEach(pr => {
+      const b = document.createElement("button");
+      b.textContent = pr.name;
+      b.addEventListener("click", () => {
+        Object.assign(scene.params, pr.vals);
+        Object.keys(pr.vals).forEach(k => { scene._inputs[k].value = pr.vals[k]; });
+        refreshVals(scene);
+      });
+      box.appendChild(b);
+    });
+    controlsEl.appendChild(box);
+  }
+  refreshVals(scene);
+}
+function refreshVals(scene){
+  const labs = controlsEl.querySelectorAll(".ctl .val");
+  scene.sliders.forEach((s, i) => {
+    const v = scene.params[s.key];
+    labs[i].textContent = (s.fmt ? s.fmt(v) : v) + (s.unit || "");
+  });
+}
+
+function activate(id){
+  active = scenes[id];
+  document.querySelectorAll("nav.tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.scene === id));
+  buildControls(active);
+  explainEl.innerHTML = active.explain;
+  active.init();
+}
+document.querySelectorAll("nav.tabs button").forEach(b =>
+  b.addEventListener("click", () => { activate(b.dataset.scene); location.hash = b.dataset.scene; }));
+
+// 播放 / 速度
+document.getElementById("playBtn").addEventListener("click", e => {
+  playing = !playing;
+  e.target.textContent = playing ? "暂停" : "播放";
+});
+document.getElementById("speed").addEventListener("input", e => {
+  speed = parseFloat(e.target.value);
+});
+
+// 反射场景：拖动波源
+cv.addEventListener("pointerdown", e => {
+  if (active !== reflect) return;
+  const pt = toCanvas(e);
+  if (Math.hypot(pt.x - reflect.params.sx, pt.y - reflect.params.sy) < 30){
+    dragging = true;
+    cv.setPointerCapture(e.pointerId);
+  }
+});
+cv.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const pt = toCanvas(e);
+  reflect.params.sx = Math.min(600, Math.max(30, pt.x));
+  reflect.params.sy = Math.min(H - 30, Math.max(30, pt.y));
+});
+cv.addEventListener("pointerup", () => { dragging = false; });
+
+// 主循环
+function loop(now){
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (playing) t += dt * speed;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#05070f";
+  ctx.fillRect(0, 0, W, H);
+  active.draw();
+  requestAnimationFrame(loop);
+}
+
+const hashScene = location.hash.slice(1);
+activate(scenes[hashScene] ? hashScene : "reflect");
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
